@@ -18,6 +18,9 @@ cursor.execute(createBooksTable)
 
 
 def main(page: ft.Page):
+
+    page.fonts = {"Norge": "PlaywriteNO-VariableFont_wght.ttf"}
+    
     def searchBook(e):
         try: 
             bookInfoLink = f"https://openlibrary.org/search.json?q={searchBarTexfield.value}"
@@ -42,6 +45,7 @@ def main(page: ft.Page):
     searchBarTexfield = ft.TextField(
             hint_text="Look for your book", width=250, 
             text_align="center", border_radius=20,bgcolor="white",
+            font_family="Norge",
             on_submit=searchBook
         )
     resultText = ft.Text(value="")
@@ -54,19 +58,8 @@ def main(page: ft.Page):
             ft.Image(
                 src="book_background.jpg",
                 expand=True,
-                fit="cover"  ),
-            ft.Container(
-                content=ft.Column([
-                    searchBarTexfield,
-                    resultText,
-                    bookImage,
-                    authorText,
-                    titleText,
-                    publishYear
-                ]),
-                padding=20
-            )
-        ])
+                fit="cover"),
+            ft.Container(content=ft.Column([searchBarTexfield,resultText, bookImage,authorText, titleText, publishYear ]), padding=20)])
 
     page.add(background)
 ft.app(target=main)
