@@ -1,5 +1,6 @@
-import flet
+import flet as ft
 import sqlite3
+import requests
 
 conn = sqlite3.connect("BookStore.db")
 
@@ -9,72 +10,65 @@ createBooksTable = """
                 CREATE TABLE IF NOT EXISTS Books(
                 BookID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
                 BookTitle VARCHAR (50) NOT NULL,
-                BookPrice REAL NOT NULL,
-                BookQuantity INTEGER NOT NULL
+                BookAuthor VARCHAR (50) NOT NULL,
+                BookGenre VARCHAR (50) NOT NULL
                 );
                 """
-
 cursor.execute(createBooksTable)
 
-while True:
-    print("Isabella's Bookstore")
-    print("1. View books")
-    print("2. Add new book")
-    print("3. Update book")
-    print("4. Delete book")
-    print("5. Exit")
-    decision = input("What will you be doing? ")
-    print("------------------------------------")
 
-    match decision:
-        case "1":
-            selectBooks = "SELECT * FROM Books"
-            cursor.execute(selectBooks)
+def main(page: ft.Page):
+    def searchBook(e):
+        try: 
+            bookInfoLink = f"https://openlibrary.org/search.json?q={searchBarTexfield.value}"
+            infoResponse = requests.get(bookInfoLink)
+            coverID = infoResponse.json()["docs"][0]["cover_edition_key"]
+            bookCoverLink = f"https://covers.openlibrary.org/b/olid/{coverID}.jpg"
+            bookImage.src = bookCoverLink
 
-            results = cursor.fetchall()
-            for r in results:
-                print (r)
+            publishYear.value = infoResponse.json()["docs"][0]["first_publish_year"]
+            authorText.value = infoResponse.json()["docs"][0]["author_name"]
+            titleText.value = infoResponse.json()["docs"][0]["title"]
 
-        case "2":
-            BookTitle = input("What is the book's title? ")
-            BookPrice = float(input("What is the book's price? "))
-            BookQuantity = int(input("What is the amount of copies of the book? "))
-            
-            insertBooks = "INSERT INTO Books (BookTitle, BookPrice, BookQuantity) VALUES (?,?,?)"
-            parameters = (BookTitle, BookPrice, BookQuantity)
 
-            cursor.execute(insertBooks, parameters)
+        except:
+            resultText.value = "Something went wrong!"
+        else:
+            resultText.value = "Book found!"
 
-        case "3":
-            BookID = input("Insert the ID of the book you'd like to update: ")
+    page.update()
 
-            BookTitle = input("What is the book's title?")
-            BookPrice = float(input("What is the book's price?"))
-            BookQuantity = int(input("What is the amount of copies of the book?"))
 
-            updateBooks = """
-                            UPDATE Books SET
-                            BookTitle = ?,
-                            BookPrice = ?,
-                            BookQuantity = ?
-                            WHERE BookID = ?
-                            """
-            
-            parameters = (BookTitle, BookPrice, BookQuantity, BookID)
-            cursor.execute(updateBooks, parameters)
+    searchBarTexfield = ft.TextField(
+            hint_text="Look for your book", width=250, 
+            text_align="center", border_radius=20,bgcolor="white",
+            on_submit=searchBook
+        )
+    resultText = ft.Text(value="")
+    bookImage = ft.Image(src="noImage.png", height=500, width=500)
+    authorText = ft.Text(value="Author:")
+    titleText = ft.Text(value="Title:")
+    publishYear = ft.Text(value="Published:")
 
-        case "4":
-            BookID = input("Insert the ID of the book you'd like to delete: ")
-            deleteBook = "DELETE FROM Books WHERE BookID = ?"
-            parameters = (BookID, )
+    background = ft.Stack([
+            ft.Image(
+                src="book_background.jpg",
+                expand=True,
+                fit="cover"  ),
+            ft.Container(
+                content=ft.Column([
+                    searchBarTexfield,
+                    resultText,
+                    bookImage,
+                    authorText,
+                    titleText,
+                    publishYear
+                ]),
+                padding=20
+            )
+        ])
 
-            cursor.execute(deleteBook, parameters)
+    page.add(background)
+ft.app(target=main)
 
-        case "5":
-            break
 
-        case _: 
-            print("This isn't an option")
-
-conn.commit()
-print("------------------------------------")
