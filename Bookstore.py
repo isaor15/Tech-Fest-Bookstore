@@ -51,21 +51,19 @@ def main(page: ft.Page):
     
     resultText = ft.Text(value="", color="black", text_align="center")
 
-    resultText= ft.Container(content=resultText, width=250, border_radius=20, bgcolor="white", padding=20)
+    resultBox = ft.Container(content=resultText, width=250, border_radius=20, bgcolor="white", padding=20)
 
     bookImage = ft.Image(src="noImage.png", height=250, width=250)
 
     authorText = ft.Text(value="Author:", color="black")
 
-    authorText= ft.Container(content=authorText,width=250, border_radius=20, bgcolor="white", padding=20)
+    authorBox = ft.Container(content=authorText,width=250, border_radius=20, bgcolor="white", padding=20)
 
     titleText = ft.Text(value="Title:", color="black")
 
-    titleText = ft.Container(content=titleText,width=250, border_radius=20, bgcolor="white", padding=20)
-
     publishYear = ft.Text(value="Published:", color="black")
     
-    publishYear= ft.Container(content=publishYear,width=250, border_radius=20, bgcolor="white", padding=20)
+    publishBox = ft.Container(content=publishYear,width=250, border_radius=20, bgcolor="white", padding=20)
 
 
     background = ft.Stack([
@@ -73,8 +71,7 @@ def main(page: ft.Page):
                 src="book_background.jpg",
                 expand=True,
                 fit="cover"),
-            ft.Container(content=ft.Column([searchBarTexfield,resultText, bookImage,authorText, titleText, publishYear ]), padding=20)])
-
+            ft.Container(content=ft.Column([searchBarTexfield,resultBox, bookImage,authorBox, publishBox]), padding=20)])
     page.add(background)
 ft.app(target=main)
 
