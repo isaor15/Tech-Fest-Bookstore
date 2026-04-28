@@ -36,7 +36,10 @@ def main(page: ft.Page):
 
 
         except:
-            resultText.value = "Something went wrong!"
+            resultText.value = "Something went wrong, we don't have that book!"
+            authorText.value = "Author not found!"
+            publishYear.value = "Publishing year not found!"
+            bookImage.src = "empty_book.jpg"
         else:
             resultText.value = "Book found!"
 
@@ -76,3 +79,13 @@ def main(page: ft.Page):
 ft.app(target=main)
 
 
+#fixes:
+#priorities
+#add user info page
+#add check out and return option
+#fix the author and publishing year text bubble so it updates if no book is found
+
+
+#just for funsies
+#add music so the experience is enjoyable (reference music player from last year)
+#find a picture for no book available in case the thing on top happens
