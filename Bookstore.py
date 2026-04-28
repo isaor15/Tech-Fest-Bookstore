@@ -20,7 +20,8 @@ cursor.execute(createBooksTable)
 def main(page: ft.Page):
 
     page.fonts = {"Norge": "PlaywriteNO-VariableFont_wght.ttf"}
-    
+    page.theme = ft.Theme(font_family="Norge")
+
     def searchBook(e):
         try: 
             bookInfoLink = f"https://openlibrary.org/search.json?q={searchBarTexfield.value}"
@@ -39,20 +40,33 @@ def main(page: ft.Page):
         else:
             resultText.value = "Book found!"
 
-    page.update()
+        page.update()
 
 
     searchBarTexfield = ft.TextField(
             hint_text="Look for your book", width=250, 
             text_align="center", border_radius=20,bgcolor="white",
-            font_family="Norge",
-            on_submit=searchBook
-        )
-    resultText = ft.Text(value="")
-    bookImage = ft.Image(src="noImage.png", height=500, width=500)
-    authorText = ft.Text(value="Author:")
-    titleText = ft.Text(value="Title:")
-    publishYear = ft.Text(value="Published:")
+            color="black",
+            on_submit=searchBook)
+    
+    resultText = ft.Text(value="", color="black", text_align="center")
+
+    resultText= ft.Container(content=resultText, width=250, border_radius=20, bgcolor="white", padding=20)
+
+    bookImage = ft.Image(src="noImage.png", height=250, width=250)
+
+    authorText = ft.Text(value="Author:", color="black")
+
+    authorText= ft.Container(content=authorText,width=250, border_radius=20, bgcolor="white", padding=20)
+
+    titleText = ft.Text(value="Title:", color="black")
+
+    titleText = ft.Container(content=titleText,width=250, border_radius=20, bgcolor="white", padding=20)
+
+    publishYear = ft.Text(value="Published:", color="black")
+    
+    publishYear= ft.Container(content=publishYear,width=250, border_radius=20, bgcolor="white", padding=20)
+
 
     background = ft.Stack([
             ft.Image(
