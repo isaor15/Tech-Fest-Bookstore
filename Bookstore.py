@@ -26,9 +26,18 @@ def main(page: ft.Page):
         try: 
             bookInfoLink = f"https://openlibrary.org/search.json?q={searchBarTexfield.value}"
             infoResponse = requests.get(bookInfoLink)
-            coverID = infoResponse.json()["docs"][0]["cover_edition_key"]
-            bookCoverLink = f"https://covers.openlibrary.org/b/olid/{coverID}.jpg"
-            bookImage.src = bookCoverLink
+            bookData = infoResponse.json()["docs"][0]
+            bookCover = "noImage.jpg"
+
+            if "cover_edition_key" in bookData:
+                coverID = bookData["cover_edition_key"]
+                bookCover = f"https://covers.openlibrary.org/b/olid/{coverID}.jpg"
+
+            elif "cover_i" in bookData:
+                coverID = bookData["cover_i"]
+                bookCover = f"https://covers.openlibrary.org/b/olid/{coverID}.jpg"
+
+            bookImage.src = bookCover
 
             publishYear.value = infoResponse.json()["docs"][0]["first_publish_year"]
             authorText.value = infoResponse.json()["docs"][0]["author_name"]
@@ -82,10 +91,15 @@ ft.app(target=main)
 #fixes:
 #priorities
 #add user info page
+#change the olid cover image so any book cover can appear
 #add check out and return option
-#fix the author and publishing year text bubble so it updates if no book is found
+#do the page.clear.controls to create new pages
+#one page with the welcome title and user login or sign up as well as the amount of books checked out or saved
+#read later list
+#another page with favorite, checked out, read later, and return date
+#fix the author and publishing year text bubble so it updates if no book is found CHECK 
 
 
 #just for funsies
 #add music so the experience is enjoyable (reference music player from last year)
-#find a picture for no book available in case the thing on top happens
+#find a picture for no book available in case the thing on top happens CHECK 
