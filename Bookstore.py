@@ -6,6 +6,7 @@ conn = sqlite3.connect("BookStore.db")
 
 cursor = conn.cursor()
 
+#SQL tables
 createBooksTable = """
                 CREATE TABLE IF NOT EXISTS Books(
                 BookID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -16,11 +17,21 @@ createBooksTable = """
                 """
 cursor.execute(createBooksTable)
 
+addUsertable = """
+                CREATE TABLE IF NOT EXISTS Users(
+                UserID INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                UserName VARCHAR (50) NOT NULL,
+                Password VARCHAR (50) NOT NULL,
+                BooksChecked INTEGER DEFAULT 0
+                );
+                """
+cursor.execute(addUsertable)
 
-def main(page: ft.Page):
 
-    page.fonts = {"Norge": "PlaywriteNO-VariableFont_wght.ttf"}
-    page.theme = ft.Theme(font_family="Norge")
+#booksearch stuff
+def mainbookpg(page):
+
+    page.controls.clear()
 
     def searchBook(e):
         try: 
@@ -85,13 +96,90 @@ def main(page: ft.Page):
                 fit="cover"),
             ft.Container(content=ft.Column([searchBarTexfield,resultBox, bookImage,authorBox, publishBox]), padding=20)])
     page.add(background)
+    page.update()
+
+
+#Login stuff and welcome page
+def welcome(page):
+
+    page.controls.clear()
+
+    welcome = ft.Text("Welcome to Isabella's Bookstore!", size=45, color = "white", text_align="center")
+    addUser = ft.TextField(hint_text="Username", width=250)
+    addPassword = ft.TextField(hint_text="Password", password=True, width=250)
+    successornot = ft.Text("", color="white", size=16)
+
+    def login(e):
+
+        userin = addUser.value
+        passin = addPassword.value
+        cursor.execute("SELECT * FROM Users WHERE UserName = ? AND Password = ?", 
+                    (userin, passin))
+        userFound = cursor.fetchone()
+
+        if userFound:
+            successornot.value = f"Welcome back to Isa's Bookshop, {userin}!"
+            page.update()
+            mainbookpg(page)
+
+        else: 
+            successornot.value = "Your username or password is wrong:("
+        page.update()
+
+
+    def signup(e):
+
+        userin = addUser.value
+        passin = addPassword.value
+
+        if userin == "" or passin == "":
+            successornot.value = "Please fill in both requirements!"
+            page.update()
+            return
+
+        cursor.execute("SELECT * FROM Users WHERE UserName = ?", (userin,))
+        takenuser = cursor.fetchone()
+
+        if takenuser:
+            successornot.value = "Oh no! It seems that the username is already taken :/"
+
+        else:
+            cursor.execute("INSERT INTO Users (UserName, Password) VALUES (?, ?)", (userin, passin))
+            conn.commit()
+            successornot.value = f"A new account has been created. Let's get to reading, {userin}!"
+            page.update()
+            mainbookpg(page)
+
+
+        page.update()
+
+    loginButton = ft.ElevatedButton("Login", on_click=login)
+    signinButton = ft.ElevatedButton("Sign Up", on_click=signup)
+
+    allstuff = ft.Column([
+        welcome, ft.Container(height=20), addUser, addPassword, successornot, ft.Row([loginButton, signinButton])
+    ])
+
+    background = ft.Stack([ft.Image(src="book_background.jpg", expand=True, fit="cover"), ft.Container(content=allstuff, padding=20)])
+    page.add(background)
+    page.update()
+
+                      
+#Main function
+def main(page: ft.Page):
+
+    page.fonts = {"Norge": "PlaywriteNO-VariableFont_wght.ttf"}
+    page.theme = ft.Theme(font_family="Norge")
+
+    welcome(page)
+
 ft.app(target=main)
 
 
 #fixes:
 #priorities
 #add user info page
-#change the olid cover image so any book cover can appear
+#change the olid cover image so any book cover can appear CHECK
 #add check out and return option
 #do the page.clear.controls to create new pages
 #one page with the welcome title and user login or sign up as well as the amount of books checked out or saved
