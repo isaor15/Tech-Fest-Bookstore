@@ -27,6 +27,19 @@ addUsertable = """
                 """
 cursor.execute(addUsertable)
 
+addFavoritesTable = """
+                    CREATE TABLE IF NOT EXISTS Favorites(
+                    FavoriteID INTEGER PRIMARY KEY AUTOINCREMENT,
+                    UserID INTEGER NOT NULL,
+                    BookTitle VARCHAR (50) NOT NULL, 
+                    BookAuthor VARCHAR (50) NOT NULL
+                    );
+                    """
+cursor.execute(addFavoritesTable)
+
+curtUserID = None
+
+
 
 #booksearch stuff
 def mainbookpg(page):
@@ -51,7 +64,7 @@ def mainbookpg(page):
             bookImage.src = bookCover
 
             publishYear.value = infoResponse.json()["docs"][0]["first_publish_year"]
-            authorText.value = infoResponse.json()["docs"][0]["author_name"]
+            authorText.value = infoResponse.json()["docs"][0]["author_name"][0]
             titleText.value = infoResponse.json()["docs"][0]["title"]
 
 
@@ -65,28 +78,47 @@ def mainbookpg(page):
 
         page.update()
 
+        favBtn.visible = True
+        page.update()
+
+    def addfav(e):
+
+        if titleText.value == "Title:" or titleText.value == "":
+            resultText.value = "You haven't searched for a book to add to favorites yet!"
+            page.update()
+            return
+        
+        cursor.execute("INSERT INTO Favorites (UserID, BookTitle, BookAuthor) VALUES (?, ?, ?)",
+                       (curtUserID, titleText.value, authorText.value))
+        conn.commit()
+
+        resultText.value = "Your book has been added to favorites!:)"
+        page.update()
+
 
     searchBarTexfield = ft.TextField(
             hint_text="Look for your book", width=250, 
             text_align="center", border_radius=20,bgcolor="white",
-            color="black",
+            color="brown",
             on_submit=searchBook)
     
-    resultText = ft.Text(value="", color="black", text_align="center")
+    resultText = ft.Text(value="", color="brown", text_align="center")
 
     resultBox = ft.Container(content=resultText, width=250, border_radius=20, bgcolor="white", padding=20)
 
     bookImage = ft.Image(src="noImage.png", height=250, width=250)
 
-    authorText = ft.Text(value="Author:", color="black")
+    authorText = ft.Text(value="Author:", color="brown")
 
     authorBox = ft.Container(content=authorText,width=250, border_radius=20, bgcolor="white", padding=20)
 
-    titleText = ft.Text(value="Title:", color="black")
+    titleText = ft.Text(value="Title:", color="brown")
 
-    publishYear = ft.Text(value="Published:", color="black")
+    publishYear = ft.Text(value="Published:", color="brown")
     
     publishBox = ft.Container(content=publishYear,width=250, border_radius=20, bgcolor="white", padding=20)
+
+    favBtn = ft.ElevatedButton("Add to favorites", on_click=addfav, visible=False, bgcolor="white", color="brown")
 
 
     background = ft.Stack([
@@ -94,7 +126,7 @@ def mainbookpg(page):
                 src="book_background.jpg",
                 expand=True,
                 fit="cover"),
-            ft.Container(content=ft.Column([searchBarTexfield,resultBox, bookImage,authorBox, publishBox]), padding=20)])
+            ft.Container(content=ft.Column([searchBarTexfield,resultBox, bookImage,authorBox, publishBox, favBtn]), padding=20)])
     page.add(background)
     page.update()
 
@@ -111,6 +143,8 @@ def welcome(page):
 
     def login(e):
 
+        global curtUserID
+
         userin = addUser.value
         passin = addPassword.value
         cursor.execute("SELECT * FROM Users WHERE UserName = ? AND Password = ?", 
@@ -118,6 +152,7 @@ def welcome(page):
         userFound = cursor.fetchone()
 
         if userFound:
+            curtUserID = userFound[0]
             successornot.value = f"Welcome back to Isa's Bookshop, {userin}!"
             page.update()
             mainbookpg(page)
