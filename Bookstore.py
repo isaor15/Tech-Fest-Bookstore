@@ -131,24 +131,32 @@ def mainbookpg(page):
 
     favBtn = ft.ElevatedButton("Add to favorites", on_click=addfav, visible=False, bgcolor="white", color="brown")
 
+    content = ft.Column([searchBarTexfield, resultBox, bookImage, authorBox, publishBox, ft.Row([favBtn, seeFavsBTN], alignment=ft.MainAxisAlignment.CENTER)], 
+                        alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10)
+
 
     background = ft.Stack([
             ft.Image(
                 src="book_background.jpg",
                 expand=True,
                 fit="cover"),
-            ft.Container(content=ft.Column([searchBarTexfield,resultBox, bookImage,authorBox, publishBox, ft.Row([favBtn, seeFavsBTN], alignment=ft.MainAxisAlignment.CENTER)]), padding=20)])
+            ft.Container(content=content, padding=20, expand=True, alignment=ft.Alignment.CENTER)])
+    
     page.add(background)
     page.update()
 
 def favPg(page):
     page.controls.clear()
 
+    page.background_image_src = "book_background.jpg"
+    page.background_image_fit = "cover"
+
     def remveFav(e, BookTitle, BookAuthor):
         cursor.execute("DELETE FROM Favorites WHERE UserID = ? AND BookTitle = ?",
                        (curtUserID, BookTitle, BookAuthor))
         conn.commit()
         favPg(page)
+
 
     def b2search(e):
         mainbookpg(page)
@@ -182,16 +190,19 @@ def favPg(page):
 
                 removeBtn = ft.ElevatedButton("Remove Book", on_click=removeBookFunc(BookTitle, BookAuthor), bgcolor="red", color="white")
 
-                bookContainer = ft.Container(content=ft.Column([ft.Text(f"Title: {BookTitle}"), ft.Text(f"Author: {BookAuthor}"), removeBtn]), bgcolor="white", padding=10,
+                bookContainer = ft.Container(content=ft.Column([
+                    ft.Text(f"Title: {BookTitle}", color="brown"),
+                                                                 ft.Text(f"Author: {BookAuthor}", color="brown"),
+                                                                 removeBtn]), bgcolor="white", padding=10,
                                               border_radius=10, margin=5)
                 
                 favList.append(bookContainer)
 
         goback = ft.ElevatedButton("Back to Search", on_click=b2search, bgcolor="white", color="brown")
-        content = ft.Column([ft.Text("Your Favortie Books: ")] + favList + [goback])
+        favBookTtile = ft.Container(content=ft.Text("Your Favorite Books:", size=30, color="brown", text_align="center"), bgcolor="white", padding=10, border_radius=10, margin=5)
+        content = ft.ListView(controls=[favBookTtile] + favList + [goback], expand=True, spacing=10, padding=20)
 
-        bg = ft.Stack([ft.Image(src="book_background.jpg", expand=True, fit="cover"), ft.Container(content=content, padding=20)])
-        page.add(bg)
+        page.add(content)
         page.update()
     
 
@@ -262,8 +273,8 @@ def welcome(page):
 
         page.update()
 
-    loginButton = ft.ElevatedButton("Login", on_click=login)
-    signinButton = ft.ElevatedButton("Sign Up", on_click=signup)
+    loginButton = ft.ElevatedButton("Login", on_click=login, bgcolor="white", color="brown")
+    signinButton = ft.ElevatedButton("Sign Up", on_click=signup, bgcolor="white", color="brown")
 
     allstuff = ft.Column([
         welcome, ft.Container(height=20), addUser, addPassword, successornot, ft.Row([loginButton, signinButton], alignment=ft.MainAxisAlignment.CENTER)
@@ -286,15 +297,12 @@ ft.app(target=main)
 
 #fixes:
 #priorities
+#have the add favorite books part only let you add one book
 #add user info page
-#change the olid cover image so any book cover can appear CHECK
 #add check out and return option
-#do the page.clear.controls to create new pages
 #one page with the welcome title and user login or sign up as well as the amount of books checked out or saved
 #read later list
 #another page with favorite, checked out, read later, and return date
-#fix the author and publishing year text bubble so it updates if no book is found CHECK 
-
 
 #just for funsies
 #add music so the experience is enjoyable (reference music player from last year)
