@@ -2,7 +2,7 @@ import flet as ft
 import sqlite3
 import requests
 
-conn = sqlite3.connect("BookStore.db")
+conn = sqlite3.connect("Library.db")
 
 cursor = conn.cursor()
 
@@ -82,6 +82,12 @@ def mainbookpg(page):
         page.update()
 
     def addfav(e):
+        global curtUserID
+
+        if curtUserID is None:
+            resultText.value = "You must login first!"
+            page.update()
+            return
 
         if titleText.value == "Title:" or titleText.value == "":
             resultText.value = "You haven't searched for a book to add to favorites yet!"
@@ -94,6 +100,11 @@ def mainbookpg(page):
 
         resultText.value = "Your book has been added to favorites!:)"
         page.update()
+
+    def seeFavs(e):
+            favPg(page)
+
+    seeFavsBTN = ft.ElevatedButton("See Favorites", on_click=seeFavs, bgcolor="white", color="brown")
 
 
     searchBarTexfield = ft.TextField(
@@ -126,9 +137,64 @@ def mainbookpg(page):
                 src="book_background.jpg",
                 expand=True,
                 fit="cover"),
-            ft.Container(content=ft.Column([searchBarTexfield,resultBox, bookImage,authorBox, publishBox, favBtn]), padding=20)])
+            ft.Container(content=ft.Column([searchBarTexfield,resultBox, bookImage,authorBox, publishBox, ft.Row([favBtn, seeFavsBTN], alignment=ft.MainAxisAlignment.CENTER)]), padding=20)])
     page.add(background)
     page.update()
+
+def favPg(page):
+    page.controls.clear()
+
+    def remveFav(e, BookTitle, BookAuthor):
+        cursor.execute("DELETE FROM Favorites WHERE UserID = ? AND BookTitle = ?",
+                       (curtUserID, BookTitle, BookAuthor))
+        conn.commit()
+        favPg(page)
+
+    def b2search(e):
+        mainbookpg(page)
+
+    cursor.execute("SELECT BookTitle, BookAuthor FROM Favorites WHERE UserID = ?", 
+                   (curtUserID,))   
+
+    favBooks = cursor.fetchall()
+
+    if not favBooks:
+        noFavMSG = ft.Text("You haven't found your favorite books yet!", size=30, color="brown", text_align="center")
+        goback = ft.ElevatedButton("Back to Search", on_click=b2search)
+        content = ft.Column([noFavMSG, ft.Container(height=20), goback], alignment=ft.MainAxisAlignment.CENTER)
+
+    else:
+        favList = []
+
+        def removeBookFunc(BookTitle, BookAuthor):
+
+            def actualBookRmv(e):
+                cursor.execute("DELETE FROM Favorites WHERE UserID = ? AND BookTitle = ? AND BookAuthor = ?", 
+                               (curtUserID, BookTitle, BookAuthor))
+                
+                conn.commit()
+                favPg(page)
+
+            return actualBookRmv
+            
+        for book in favBooks:
+                BookTitle, BookAuthor = book
+
+                removeBtn = ft.ElevatedButton("Remove Book", on_click=removeBookFunc(BookTitle, BookAuthor), bgcolor="red", color="white")
+
+                bookContainer = ft.Container(content=ft.Column([ft.Text(f"Title: {BookTitle}"), ft.Text(f"Author: {BookAuthor}"), removeBtn]), bgcolor="white", padding=10,
+                                              border_radius=10, margin=5)
+                
+                favList.append(bookContainer)
+
+        goback = ft.ElevatedButton("Back to Search", on_click=b2search, bgcolor="white", color="brown")
+        content = ft.Column([ft.Text("Your Favortie Books: ")] + favList + [goback])
+
+        bg = ft.Stack([ft.Image(src="book_background.jpg", expand=True, fit="cover"), ft.Container(content=content, padding=20)])
+        page.add(bg)
+        page.update()
+    
+
 
 
 #Login stuff and welcome page
@@ -136,13 +202,12 @@ def welcome(page):
 
     page.controls.clear()
 
-    welcome = ft.Text("Welcome to Isabella's Bookstore!", size=45, color = "white", text_align="center")
+    welcome = ft.Text("Welcome to Isabella's Library!", size=45, color = "white", text_align="center")
     addUser = ft.TextField(hint_text="Username", width=250)
     addPassword = ft.TextField(hint_text="Password", password=True, width=250)
     successornot = ft.Text("", color="white", size=16)
 
     def login(e):
-
         global curtUserID
 
         userin = addUser.value
@@ -153,6 +218,7 @@ def welcome(page):
 
         if userFound:
             curtUserID = userFound[0]
+            print(f"User ID set to: {curtUserID}")
             successornot.value = f"Welcome back to Isa's Bookshop, {userin}!"
             page.update()
             mainbookpg(page)
@@ -163,6 +229,7 @@ def welcome(page):
 
 
     def signup(e):
+        global curtUserID
 
         userin = addUser.value
         passin = addPassword.value
@@ -181,6 +248,13 @@ def welcome(page):
         else:
             cursor.execute("INSERT INTO Users (UserName, Password) VALUES (?, ?)", (userin, passin))
             conn.commit()
+
+            cursor.execute("SELECT UserID FROM Users WHERE UserName = ?", (userin,))
+            newUser = cursor.fetchone()
+            curtUserID = newUser[0]
+
+
+            print(f"New User ID set to: {curtUserID}")
             successornot.value = f"A new account has been created. Let's get to reading, {userin}!"
             page.update()
             mainbookpg(page)
@@ -192,13 +266,12 @@ def welcome(page):
     signinButton = ft.ElevatedButton("Sign Up", on_click=signup)
 
     allstuff = ft.Column([
-        welcome, ft.Container(height=20), addUser, addPassword, successornot, ft.Row([loginButton, signinButton])
-    ])
+        welcome, ft.Container(height=20), addUser, addPassword, successornot, ft.Row([loginButton, signinButton], alignment=ft.MainAxisAlignment.CENTER)
+    ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
 
     background = ft.Stack([ft.Image(src="book_background.jpg", expand=True, fit="cover"), ft.Container(content=allstuff, padding=20)])
     page.add(background)
     page.update()
-
                       
 #Main function
 def main(page: ft.Page):
