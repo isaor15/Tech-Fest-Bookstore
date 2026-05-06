@@ -7,6 +7,7 @@ import datetime
 #datetime and checkout time - https://www.youtube.com/watch?v=DwBDHsdX6XQ 
 #fonts - https://flet.dev/docs/controls/page/#flet.Page.fonts
 #scroll - https://flet.dev/docs/controls/scrollablecontrol/#flet.ScrollableControl.scroll
+#listview - https://flet.dev/docs/controls/listview/
 
 conn = sqlite3.connect("Library.db")
 
@@ -57,9 +58,85 @@ createCheckoutTable = """
                 """
 cursor.execute(createCheckoutTable)
 
+createCheckedOutView = """
+                CREATE VIEW IF NOT EXISTS CurrentCheckouts AS
+                SELECT UserID, BookTitle, BookAuthor, CheckoutDate, ReturnDate 
+                FROM Checkout
+                WHERE Status = 'Checked Out';
+                """
+cursor.execute(createCheckedOutView)
+
 curtUserID = None
 
 
+def dashboard(page):
+    page.controls.clear()
+    
+    page.bgcolor = None
+    page.background_image_src = "book_background.jpg"
+    page.background_image_fit = "cover"
+
+    countUsers = "SELECT COUNT(*) FROM Users"
+    cursor.execute(countUsers)
+    allUsers = cursor.fetchone()[0]
+
+    countCheckouts = "SELECT COUNT(*) FROM Checkout WHERE Status = 'Checked Out'"
+    cursor.execute(countCheckouts)
+    checkedOut = cursor.fetchone()[0]
+
+    countFavs = "SELECT COUNT(*) FROM Favorites"
+    cursor.execute(countFavs)
+    allFavs = cursor.fetchone()[0]
+
+    if curtUserID:
+        getUserBks = "SELECT BooksChecked FROM Users WHERE UserID = ?"
+        parameters = (curtUserID,)
+        cursor.execute(getUserBks, parameters)
+        result = cursor.fetchone()
+        myBooks = result[0]  
+    else:
+        myBooks = 0
+
+    def goToSearch(e):
+        mainbookpg(page)
+    
+    def goToFavs(e):
+        favPg(page)
+    
+    def goToCheckout(e):
+        checkedOutPg(page)
+    
+    def goToReports(e):
+        reportsPg(page)
+    
+    dashTtle = ft.Text("Library Dashboard", size=40, color="brown", weight="bold", text_align="center")
+    
+    userInfo = ft.Container(content=ft.Column([ft.Text("Total Users: ", size=20, color="brown", weight="bold"), ft.Text(str(allUsers), size=35, color="brown")], 
+    horizontal_alignment=ft.CrossAxisAlignment.CENTER), bgcolor="white", padding=20, border_radius=15, width=200)
+    
+    checkoutInfo = ft.Container(content=ft.Column([ft.Text("Books Checked Out: ", size=18, color="brown", weight="bold", text_align="center"), ft.Text(str(checkedOut), size=35, color="brown")], 
+    horizontal_alignment=ft.CrossAxisAlignment.CENTER), bgcolor="white", padding=20, border_radius=15, width=200)
+    
+    favsInfo = ft.Container(content=ft.Column([ft.Text("Total Favorites: ", size=20, color="brown", weight="bold"), ft.Text(str(allFavs), size=35, color="brown")],
+    horizontal_alignment=ft.CrossAxisAlignment.CENTER), bgcolor="white", padding=20, border_radius=15, width=200)
+    
+    userChecks = ft.Container(content=ft.Column([ft.Text("My Checked Out", size=18, color="brown", weight="bold", text_align="center"), ft.Text(str(myBooks), size=35, color="brown")],
+    horizontal_alignment=ft.CrossAxisAlignment.CENTER), bgcolor="white", padding=20, border_radius=15, width=200)
+
+    
+    searchBtn = ft.ElevatedButton("Search Books", on_click=goToSearch, bgcolor="white", color="brown", width=200)
+    favsBtn = ft.ElevatedButton("My Favorites", on_click=goToFavs, bgcolor="white", color="brown", width=200)
+    checkoutBtn = ft.ElevatedButton("My Checkouts", on_click=goToCheckout, bgcolor="white", color="brown", width=200)
+    reportsBtn = ft.ElevatedButton("View Reports", on_click=goToReports, bgcolor="white", color="brown", width=200)
+    
+
+    content = ft.Column([dashTtle, ft.Container(height=20), ft.Row([userInfo, checkoutInfo], alignment=ft.MainAxisAlignment.CENTER, spacing=20), ft.Row([favsInfo, userChecks], alignment=ft.MainAxisAlignment.CENTER, spacing=20),
+        ft.Container(height=30), ft.Row([searchBtn, favsBtn], alignment=ft.MainAxisAlignment.CENTER, spacing=10), ft.Row([checkoutBtn, reportsBtn], alignment=ft.MainAxisAlignment.CENTER, spacing=10)], 
+        alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10, scroll="auto")
+    
+    page.add(content)
+    page.update()
+    
 
 #booksearch stuff
 def mainbookpg(page):
@@ -112,6 +189,15 @@ def mainbookpg(page):
 
         if titleText.value == "Title:" or titleText.value == "":
             resultText.value = "You haven't searched for a book to add to favorites yet!"
+            page.update()
+            return
+
+        dupes = "SELECT * FROM Favorites WHERE UserID = ? AND BookTitle = ? AND BookAuthor = ?"
+        parameters = (curtUserID, titleText.value, authorText.value)
+        cursor.execute(dupes, parameters)
+
+        if cursor.fetchone():
+            resultText.value = "This book is already in your favorites!"
             page.update()
             return
         
@@ -356,10 +442,64 @@ def checkedOutPg(page):
 
         goback = ft.ElevatedButton("Back to Search", on_click=b2search, bgcolor="white", color="brown")
         checkedOutTitle = ft.Container(content=ft.Text("Your Checked Out Books:", size=30, color="brown", text_align="center"), bgcolor="white", padding=10, border_radius=10, margin=5)
-        listView = ft.ListView(controls=[checkedOutTitle] + bookList + [goback], expand=True, spacing=10, padding=20, auto_scroll=True)
+        scroll = ft.ListView(controls=[checkedOutTitle] + bookList + [goback], expand=True, spacing=10, padding=20, auto_scroll=True)
         
-        page.add(listView)
+        page.add(scroll)
         page.update()
+
+def reportsPg(page):
+    page.controls.clear()
+    
+    page.bgcolor = None
+    page.background_image_src = "book_background.jpg"
+    page.background_image_fit = "cover"
+    
+    reporty = """
+    SELECT BookTitle, BookAuthor,
+    CASE 
+        WHEN Status = 'Checked Out' THEN 'Already Checked Out'
+        ELSE 'Available'
+    END AS BookStatus
+    FROM Checkout
+    """
+    
+    cursor.execute(reporty)
+    results = cursor.fetchall()
+    
+    reportList = []
+    
+    if not results:
+        noReports = ft.Text("There aren't any records of your checkouts yet!", size=25, color="brown", text_align="center")
+        noRepsCont = ft.Container(content=noReports, bgcolor="white", padding=20, border_radius=10, margin=5)
+        reportList.append(noRepsCont)
+
+    else:
+        for book in results:
+            title = book[0]
+            author = book[1]
+            status = book[2]
+            
+            titleText = ft.Text(f"Title: {title}", color="brown")
+            authorText = ft.Text(f"Author: {author}", color="brown")
+            statusText = ft.Text(f"Status: {status}", color="brown", weight="bold")
+            
+            bookInfo = ft.Column([titleText, authorText, statusText])
+            
+            bookContainer = ft.Container(content=bookInfo, bgcolor="white", padding=10, border_radius=10, margin=5)
+            
+            reportList.append(bookContainer)
+
+    
+    def goBack(e):
+        dashboard(page)
+    
+    backBtn = ft.ElevatedButton("Back to Dashboard", on_click=goBack, bgcolor="white", color="brown")
+    reporText = ft.Container(content=ft.Text("Book Status Report", size=30, color="brown", text_align="center"), bgcolor="white", padding=10, border_radius=10, margin=5)
+    
+    listView = ft.ListView(controls=[reporText] + reportList + [backBtn], expand=True, spacing=10, padding=20)
+    
+    page.add(listView)
+    page.update()
 
 #Login stuff and welcome page
 def welcome(page):
@@ -386,7 +526,7 @@ def welcome(page):
             print(f"User ID set to: {curtUserID}")
             successornot.value = f"Welcome back, {userin}!"
             page.update()
-            mainbookpg(page)
+            dashboard(page)
 
         else: 
             successornot.value = "Your username or password is wrong:("
@@ -428,7 +568,7 @@ def welcome(page):
             print(f"New User ID set to: {curtUserID}")
             successornot.value = f"A new account has been created. Let's get to reading, {userin}!"
             page.update()
-            mainbookpg(page)
+            dashboard(page)
 
 
         page.update()
