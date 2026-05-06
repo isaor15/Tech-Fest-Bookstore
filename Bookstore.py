@@ -1,6 +1,12 @@
 import flet as ft
 import sqlite3
 import requests
+import datetime
+
+#external resources used
+#datetime and checkout time - https://www.youtube.com/watch?v=DwBDHsdX6XQ 
+#fonts - https://flet.dev/docs/controls/page/#flet.Page.fonts
+#scroll - https://flet.dev/docs/controls/scrollablecontrol/#flet.ScrollableControl.scroll
 
 conn = sqlite3.connect("Library.db")
 
@@ -36,6 +42,20 @@ addFavoritesTable = """
                     );
                     """
 cursor.execute(addFavoritesTable)
+
+createCheckoutTable = """
+                CREATE TABLE IF NOT EXISTS Checkout(
+                TransactionID INTEGER PRIMARY KEY AUTOINCREMENT,
+                UserID INTEGER NOT NULL,
+                BookTitle VARCHAR (50) NOT NULL,
+                BookAuthor VARCHAR (50) NOT NULL,
+                CheckoutDate VARCHAR (50) NOT NULL,
+                ReturnDate VARCHAR (50) NOT NULL,
+                Status VARCHAR (20) DEFAULT 'Checked Out',
+                FOREIGN KEY (UserID) REFERENCES Users(UserID)
+                );
+                """
+cursor.execute(createCheckoutTable)
 
 curtUserID = None
 
@@ -79,6 +99,7 @@ def mainbookpg(page):
         page.update()
 
         favBtn.visible = True
+        checkoutBtn.visible = True
         page.update()
 
     def addfav(e):
@@ -94,18 +115,82 @@ def mainbookpg(page):
             page.update()
             return
         
-        cursor.execute("INSERT INTO Favorites (UserID, BookTitle, BookAuthor) VALUES (?, ?, ?)",
-                       (curtUserID, titleText.value, authorText.value))
+        insertFav = "INSERT INTO Favorites (UserID, BookTitle, BookAuthor) VALUES (?, ?, ?)"
+        parameters = (curtUserID, titleText.value, authorText.value)
+        cursor.execute(insertFav, parameters)
         conn.commit()
 
         resultText.value = "Your book has been added to favorites!:)"
         page.update()
 
+    def checkoutBook(e):
+        global curtUserID
+        
+        if curtUserID is None:
+            resultText.value = "Please login first!"
+            page.update()
+            return
+        
+        if titleText.value == "Title:" or titleText.value == "":
+            resultText.value = "You haven't looked up a book to check out yet!:/"
+            page.update()
+            return
+        
+        userBkCount = "SELECT BooksChecked FROM Users WHERE UserID = ?"
+        parameters = (curtUserID,)
+        cursor.execute(userBkCount, parameters)
+        results = cursor.fetchone()
+        booksChecked = results[0]
+        
+        if booksChecked >= 3:
+            resultText.value = "Oops! It seems that you can't check out more than 3 books at a time!"
+            page.update()
+            return
+        
+        checkoutDate = datetime.date.today()
+        today = checkoutDate.strftime("%d-%m-%Y")
+        
+        currDay = checkoutDate.day
+        retDay = currDay + 14
+        
+        if retDay > 30:
+            retDay = retDay - 30
+            retMonth = checkoutDate.month + 1
+        else:
+            retMonth = checkoutDate.month
+        
+        if retMonth > 12:
+            retMonth = 1
+            return_year = checkoutDate.year + 1
+        else:
+            return_year = checkoutDate.year
+        
+        returnDate = f"{retDay}-{retMonth}-{return_year}"
+
+        insertCheckout = "INSERT INTO Checkout (UserID, BookTitle, BookAuthor, CheckoutDate, ReturnDate, Status) VALUES (?, ?, ?, ?, ?, ?)"
+        parameters = (curtUserID, titleText.value, authorText.value, today, returnDate, "Checked Out")
+        cursor.execute(insertCheckout, parameters)
+        conn.commit()
+
+        addBkCount = booksChecked + 1
+        
+        updateUser = "UPDATE Users SET BooksChecked = ? WHERE UserID = ?"
+        parameters = (addBkCount, curtUserID)
+        cursor.execute(updateUser, parameters)
+        conn.commit()
+            
+        resultText.value = f"Yay! Book checked out until {returnDate}! Have fun reading!"
+        page.update()
+
+
     def seeFavs(e):
-            favPg(page)
+        favPg(page)
+    
+    def seeCheckout(e):
+        checkedOutPg(page)
 
     seeFavsBTN = ft.ElevatedButton("See Favorites", on_click=seeFavs, bgcolor="white", color="brown")
-
+    seeCheckoutBTN = ft.ElevatedButton("My Checked Out Books", on_click=seeCheckout, bgcolor="white", color="brown")
 
     searchBarTexfield = ft.TextField(
             hint_text="Look for your book", width=250, 
@@ -131,7 +216,12 @@ def mainbookpg(page):
 
     favBtn = ft.ElevatedButton("Add to favorites", on_click=addfav, visible=False, bgcolor="white", color="brown")
 
-    content = ft.Column([searchBarTexfield, resultBox, bookImage, authorBox, publishBox, ft.Row([favBtn, seeFavsBTN], alignment=ft.MainAxisAlignment.CENTER)], 
+    checkoutBtn = ft.ElevatedButton("Checkout Book", on_click=checkoutBook, visible=False, bgcolor="white", color="brown")
+
+
+    content = ft.Column([searchBarTexfield, resultBox, bookImage, titleText, authorBox, publishBox, 
+                         ft.Row([favBtn, checkoutBtn], alignment=ft.MainAxisAlignment.CENTER),
+                         ft.Row([seeFavsBTN, seeCheckoutBTN], alignment=ft.MainAxisAlignment.CENTER)], 
                         alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10)
 
 
@@ -148,28 +238,25 @@ def mainbookpg(page):
 def favPg(page):
     page.controls.clear()
 
+    page.bgcolor = None
     page.background_image_src = "book_background.jpg"
     page.background_image_fit = "cover"
-
-    def remveFav(e, BookTitle, BookAuthor):
-        cursor.execute("DELETE FROM Favorites WHERE UserID = ? AND BookTitle = ?",
-                       (curtUserID, BookTitle, BookAuthor))
-        conn.commit()
-        favPg(page)
-
 
     def b2search(e):
         mainbookpg(page)
 
-    cursor.execute("SELECT BookTitle, BookAuthor FROM Favorites WHERE UserID = ?", 
-                   (curtUserID,))   
+    selectFavs = "SELECT BookTitle, BookAuthor FROM Favorites WHERE UserID = ?"
+    parameters = (curtUserID,)
+    cursor.execute(selectFavs, parameters) 
 
     favBooks = cursor.fetchall()
 
     if not favBooks:
         noFavMSG = ft.Text("You haven't found your favorite books yet!", size=30, color="brown", text_align="center")
-        goback = ft.ElevatedButton("Back to Search", on_click=b2search)
+        goback = ft.ElevatedButton("Back to Search", on_click=b2search, bgcolor="white", color="brown")
         content = ft.Column([noFavMSG, ft.Container(height=20), goback], alignment=ft.MainAxisAlignment.CENTER)
+        page.add(content)
+        page.update()
 
     else:
         favList = []
@@ -177,8 +264,9 @@ def favPg(page):
         def removeBookFunc(BookTitle, BookAuthor):
 
             def actualBookRmv(e):
-                cursor.execute("DELETE FROM Favorites WHERE UserID = ? AND BookTitle = ? AND BookAuthor = ?", 
-                               (curtUserID, BookTitle, BookAuthor))
+                deleteFav = "DELETE FROM Favorites WHERE UserID = ? AND BookTitle = ? AND BookAuthor = ?"
+                parameters = (curtUserID, BookTitle, BookAuthor)
+                cursor.execute(deleteFav, parameters)
                 
                 conn.commit()
                 favPg(page)
@@ -192,21 +280,86 @@ def favPg(page):
 
                 bookContainer = ft.Container(content=ft.Column([
                     ft.Text(f"Title: {BookTitle}", color="brown"),
-                                                                 ft.Text(f"Author: {BookAuthor}", color="brown"),
-                                                                 removeBtn]), bgcolor="white", padding=10,
-                                              border_radius=10, margin=5)
+                    ft.Text(f"Author: {BookAuthor}", color="brown"),
+                    removeBtn]), bgcolor="white", padding=10,
+                    border_radius=10, margin=5)
                 
                 favList.append(bookContainer)
 
         goback = ft.ElevatedButton("Back to Search", on_click=b2search, bgcolor="white", color="brown")
         favBookTtile = ft.Container(content=ft.Text("Your Favorite Books:", size=30, color="brown", text_align="center"), bgcolor="white", padding=10, border_radius=10, margin=5)
-        content = ft.ListView(controls=[favBookTtile] + favList + [goback], expand=True, spacing=10, padding=20)
+        listView = ft.ListView(controls=[favBookTtile] + favList + [goback], expand=True, spacing=10, padding=20, auto_scroll=True)
+        
+        page.add(listView)
+        page.update()
 
+def checkedOutPg(page):
+    page.controls.clear()
+
+    page.bgcolor = None
+    page.background_image_src = "book_background.jpg"
+    page.background_image_fit = "cover"
+
+    def b2search(e):
+        mainbookpg(page)
+
+    selectCheckout = "SELECT BookTitle, BookAuthor, CheckoutDate, ReturnDate FROM Checkout WHERE UserID = ? AND Status = 'Checked Out'"
+    parameters = (curtUserID,)
+    cursor.execute(selectCheckout, parameters) 
+
+    checkedBooks = cursor.fetchall()
+
+    if not checkedBooks:
+        noBooksMSG = ft.Text("You don't have any books checked out right now!", size=30, color="brown", text_align="center")
+        goback = ft.ElevatedButton("Back to Search", on_click=b2search, bgcolor="white", color="brown")
+        content = ft.Column([noBooksMSG, ft.Container(height=20), goback], alignment=ft.MainAxisAlignment.CENTER)
         page.add(content)
         page.update()
-    
 
+    else:
+        bookList = []
 
+        def returnBook(BookTitle, BookAuthor):
+
+            def actualReturn(e):
+                updateStatus = "UPDATE Checkout SET Status = 'Returned' WHERE UserID = ? AND BookTitle = ? AND BookAuthor = ? AND Status = 'Checked Out'"
+                parameters = (curtUserID, BookTitle, BookAuthor)
+                cursor.execute(updateStatus, parameters)
+                conn.commit()
+                
+                getBooksChecked = "SELECT BooksChecked FROM Users WHERE UserID = ?"
+                cursor.execute(getBooksChecked, (curtUserID,))
+                result = cursor.fetchone()
+                currentBooks = result[0]
+                
+                newBookCount = currentBooks - 1
+                
+                updateUser = "UPDATE Users SET BooksChecked = ? WHERE UserID = ?"
+                parameters = (newBookCount, curtUserID)
+                cursor.execute(updateUser, parameters)
+                conn.commit()
+
+                checkedOutPg(page)
+
+            return actualReturn
+            
+        for book in checkedBooks:
+            BookTitle, BookAuthor, CheckoutDate, ReturnDate = book
+
+            returnBtn = ft.ElevatedButton("Return Book", on_click=returnBook(BookTitle, BookAuthor), bgcolor="green", color="white")
+
+            bookContainer = ft.Container(content=ft.Column([ft.Text(f"Title: {BookTitle}", color="brown"),ft.Text(f"Author: {BookAuthor}", color="brown"),ft.Text(f"Checked Out: {CheckoutDate}", color="brown"),ft.Text(f"Due Date: {ReturnDate}", color="brown"),
+                returnBtn]), bgcolor="white", padding=10,
+                border_radius=10, margin=5)
+            
+            bookList.append(bookContainer)
+
+        goback = ft.ElevatedButton("Back to Search", on_click=b2search, bgcolor="white", color="brown")
+        checkedOutTitle = ft.Container(content=ft.Text("Your Checked Out Books:", size=30, color="brown", text_align="center"), bgcolor="white", padding=10, border_radius=10, margin=5)
+        listView = ft.ListView(controls=[checkedOutTitle] + bookList + [goback], expand=True, spacing=10, padding=20, auto_scroll=True)
+        
+        page.add(listView)
+        page.update()
 
 #Login stuff and welcome page
 def welcome(page):
@@ -223,14 +376,15 @@ def welcome(page):
 
         userin = addUser.value
         passin = addPassword.value
-        cursor.execute("SELECT * FROM Users WHERE UserName = ? AND Password = ?", 
-                    (userin, passin))
+        selectUser = "SELECT * FROM Users WHERE UserName = ? AND Password = ?"
+        parameters = (userin, passin)
+        cursor.execute(selectUser, parameters)
         userFound = cursor.fetchone()
 
         if userFound:
             curtUserID = userFound[0]
             print(f"User ID set to: {curtUserID}")
-            successornot.value = f"Welcome back to Isa's Bookshop, {userin}!"
+            successornot.value = f"Welcome back, {userin}!"
             page.update()
             mainbookpg(page)
 
@@ -250,17 +404,23 @@ def welcome(page):
             page.update()
             return
 
-        cursor.execute("SELECT * FROM Users WHERE UserName = ?", (userin,))
+        checkUser = "SELECT * FROM Users WHERE UserName = ?"
+        parameters = (userin,)
+        cursor.execute(checkUser, parameters)
         takenuser = cursor.fetchone()
 
         if takenuser:
             successornot.value = "Oh no! It seems that the username is already taken :/"
 
         else:
-            cursor.execute("INSERT INTO Users (UserName, Password) VALUES (?, ?)", (userin, passin))
+            insertUser = "INSERT INTO Users (UserName, Password) VALUES (?, ?)"
+            parameters = (userin, passin)
+            cursor.execute(insertUser, parameters)
             conn.commit()
 
-            cursor.execute("SELECT UserID FROM Users WHERE UserName = ?", (userin,))
+            selectUserID = "SELECT UserID FROM Users WHERE UserName = ?"
+            parameters = (userin,)
+            cursor.execute(selectUserID, parameters)
             newUser = cursor.fetchone()
             curtUserID = newUser[0]
 
